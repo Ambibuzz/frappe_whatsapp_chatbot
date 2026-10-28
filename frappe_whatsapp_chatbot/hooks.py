@@ -9,7 +9,8 @@ required_apps = ["shridarpatil/frappe_whatsapp"]
 # Document Events
 doc_events = {
     "WhatsApp Message": {
-        "after_insert": "frappe_whatsapp_chatbot.chatbot.processor.process_incoming_message"
+        "after_insert": "frappe_whatsapp_chatbot.chatbot.processor.process_incoming_message",
+        "on_update": "frappe_whatsapp_chatbot.chatbot.processor.process_incoming_message"
     }
 }
 

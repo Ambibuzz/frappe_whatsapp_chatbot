@@ -68,8 +68,8 @@ class ChatbotProcessor:
         if not settings:
             return False
 
-        # Only process text, button, and flow messages
-        if self.content_type not in ["text", "button", "flow"]:
+        # Only process supported content types
+        if self.content_type not in ["text", "button", "flow", "image", "document"]:
             return False
 
         # Check if this account is configured for chatbot
@@ -140,7 +140,9 @@ class ChatbotProcessor:
                 response = flow_engine.process_input(
                     active_session,
                     self.message_text,
-                    self.button_payload
+                    self.button_payload,
+                    self.content_type,
+                    self.message_data.get("attach")
                 )
             if response:
                 self.send_response(response)
@@ -260,7 +262,9 @@ class ChatbotProcessor:
                 return flow_engine.process_input(
                     session,
                     self.message_text,
-                    self.button_payload
+                    self.button_payload,
+                    self.content_type,
+                    self.message_data.get("attach")
                 )
 
             # Process the flow response and map fields to session data
@@ -442,9 +446,16 @@ def process_incoming_message(doc, method=None):
         if not doc_name or doc_name in _processing_messages:
             return
 
-        # Only process text, button, and flow content types
+        # Only process supported content types
         content_type = getattr(doc, "content_type", None)
-        if content_type not in ["text", "button", "flow"]:
+        if content_type not in ["text", "button", "flow", "image", "document"]:
+            return
+
+        # Incoming media gets its attachment after the message is inserted.
+        if method == "on_update":
+            if doc.is_new() or content_type not in ["image", "document"] or not doc.has_value_changed("attach"):
+                return
+        if content_type in ["image", "document"] and not getattr(doc, "attach", None):
             return
 
         # Quick check if chatbot is enabled (without full initialization)
@@ -463,6 +474,7 @@ def process_incoming_message(doc, method=None):
             "from": getattr(doc, "from", None) or getattr(doc, "from_", None),
             "message": getattr(doc, "message", "") or "",
             "content_type": content_type or "text",
+            "attach": getattr(doc, "attach", None),
             "whatsapp_account": getattr(doc, "whatsapp_account", None),
             "type": "Incoming",
             "flow_response": getattr(doc, "flow_response", None)

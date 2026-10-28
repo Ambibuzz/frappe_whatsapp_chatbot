@@ -111,7 +111,7 @@ class FlowEngine:
             frappe.log_error(f"FlowEngine start_flow error: {str(e)}")
             return None
 
-    def process_input(self, session, user_input, button_payload=None):
+    def process_input(self, session, user_input, button_payload=None, content_type="text", attachment=None):
         """Process user input in active flow."""
         try:
             flow = frappe.get_doc("WhatsApp Chatbot Flow", session.current_flow)
@@ -138,9 +138,11 @@ class FlowEngine:
 
             # Validate input
             input_value = button_payload or user_input
+            if (current_step.input_type or "").lower() in ["image", "document"]:
+                input_value = attachment
 
             if current_step.input_type and current_step.input_type != "None":
-                is_valid, error = self.validate_input(current_step, user_input, button_payload)
+                is_valid, error = self.validate_input(current_step, user_input, button_payload, content_type, attachment)
 
                 if not is_valid:
                     # Handle retry
@@ -223,9 +225,14 @@ class FlowEngine:
             frappe.log_error(f"FlowEngine process_input error: {str(e)}")
             return "An error occurred. Please try again later."
 
-    def validate_input(self, step, user_input, button_payload):
+    def validate_input(self, step, user_input, button_payload, content_type="text", attachment=None):
         """Validate user input against step requirements."""
         input_type = step.input_type
+
+        if (input_type or "").lower() in ["image", "document"]:
+            if content_type == input_type.lower() and attachment:
+                return True, None
+            return False, step.validation_error or f"Please send {'an image' if input_type.lower() == 'image' else 'a document'}."
 
         if input_type == "Button":
             # Button responses are always valid (payload or text)
